@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Similarity Finder</title>
+</head>
+<body>
+    <h1>Image Similarity Finder</h1>
+
+    <form id="similarityForm" enctype="multipart/form-data">
+        <label for="mode">Select Mode:</label>
+        <select id="mode" name="mode" required>
+            <option value="text">Text</option>
+            <option value="image">Image</option>
+            <option value="both">Both</option>
+        </select>
+
+        <div id="textInput" style="display: block;">
+            <label for="text">Enter Text:</label>
+            <input type="text" name="text" id="text">
+        </div>
+
+        <div id="imageInput" style="display: none;">
+            <label for="image">Upload Image:</label>
+            <input type="file" name="image" id="image" accept="image/*">
+        </div>
+
+        <div id="bothInputs" style="display: none;">
+            <label for="weight">Weight (0 = focus on text, 1 = focus on image):</label>
+            <input type="range" name="weight" id="weight" min="0" max="1" step="0.1" value="0.5">
+        </div>
+
+        <button type="submit">Find Similar Images</button>
+    </form>
+
+    <div id="results" style="margin-top: 20px;">
+        <h2>Results:</h2>
+        <div id="images"></div>
+    </div>
+
+    <script>
+        // Update form inputs based on selected mode
+        document.getElementById("mode").addEventListener("change", function () {
+            const mode = this.value;
+            document.getElementById("textInput").style.display = mode === "text" || mode === "both" ? "block" : "none";
+            document.getElementById("imageInput").style.display = mode === "image" || mode === "both" ? "block" : "none";
+            document.getElementById("bothInputs").style.display = mode === "both" ? "block" : "none";
+        });
+
+        // Handle form submission
+        document.getElementById("similarityForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            const mode = document.getElementById("mode").value;
+
+            if (mode === "text" || mode === "both") {
+                const text = document.getElementById("text").value;
+                formData.append("text", text);
+            }
+
+            if (mode === "image" || mode === "both") {
+                const image = document.getElementById("image").files[0];
+                if (image) {
+                    formData.append("image", image);
+                }
+            }
+
+            if (mode === "both") {
+                const weight = document.getElementById("weight").value;
+                formData.append("weight", weight);
+            }
+
+            let endpoint = "";
+            if (mode === "text") {
+                endpoint = "/find_similar_images_text";
+            } else if (mode === "image") {
+                endpoint = "/find_similar_images_image";
+            } else if (mode === "both") {
+                endpoint = "/find_combined_similarity";
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    body: formData
+                });
+                const results = await response.json();
+
+                if (response.ok) {
+                    displayResults(results);
+                } else {
+                    alert(`Error: ${results.error || "Unknown error"}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        });
+
+        // Function to display results
+        function displayResults(results) {
+            const imagesDiv = document.getElementById("images");
+            imagesDiv.innerHTML = ""; // Clear previous results
+
+            results.forEach(result => {
+                const imgDiv = document.createElement("div");
+                imgDiv.style.marginBottom = "10px";
+
+                const img = document.createElement("img");
+                img.src = `/image/${result.file}`;
+                img.style.width = "200px";
+                img.style.height = "auto";
+
+                const similarity = document.createElement("p");
+                similarity.textContent = `Similarity: ${result.similarity.toFixed(2)}`;
+
+                imgDiv.appendChild(img);
+                imgDiv.appendChild(similarity);
+                imagesDiv.appendChild(imgDiv);
+            });
+        }
+    </script>
+</body>
+</html>
